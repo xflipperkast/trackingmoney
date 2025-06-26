@@ -74,6 +74,7 @@
           if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
           else if (freq === 'weekly') next.setDate(next.getDate() + 7);
           else if (freq === 'yearly') next.setFullYear(next.getFullYear() + 1);
+          if(row.HerhaalTot && new Date(next) > new Date(row.HerhaalTot)) return;
           const nYear = next.getFullYear();
           const nMonthIdx = next.getMonth();
           if (nYear > cYear || (nYear === cYear && nMonthIdx > cMonthIdx)) return;
@@ -134,6 +135,7 @@
     const totalBal = computeMonthEndBalance(currentYear, currentMonth);
     const salary = monthRows.filter(r=>r.Type==='inkomen' && r.SubType==='salaris').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const expenses = monthRows.filter(r=>r.Type==='uitgave').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
+    const fixed = monthRows.filter(r=>r.Type==='uitgave' && r.Herhaal && r.Herhaal!=='none').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const net = monthRows.reduce((s,r)=>{
       if(r.Type==='inkomen') return s+parseFloat(r.Bedrag);
       if(r.Type==='uitgave') return s-parseFloat(r.Bedrag);
@@ -170,7 +172,7 @@
     const infoBottom = document.createElement('div');
     infoBottom.className = 'mt-2';
     const diff = salary - expenses;
-    infoBottom.innerHTML = `Salaris: €${salary.toFixed(2)} | Uitgaven: €${expenses.toFixed(2)} | Verschil deze maand: €${net.toFixed(2)} | Over van salaris: <span class="${diff < 0 ? 'text-danger' : 'text-success'}">€${diff.toFixed(2)}</span>`;
+    infoBottom.innerHTML = `Salaris: €${salary.toFixed(2)} | Uitgaven: €${expenses.toFixed(2)} | Verschil deze maand: €${net.toFixed(2)} | Vaste Uitgaven: €${fixed.toFixed(2)} | Over van salaris: <span class="${diff < 0 ? 'text-danger' : 'text-success'}">€${diff.toFixed(2)}</span>`;
     container.appendChild(infoBottom);
   }
 
@@ -197,29 +199,38 @@
     if (row.Herhaal === true) recVal = 'monthly';
     else if (typeof row.Herhaal === 'string') recVal = row.Herhaal;
     document.getElementById('transRecurring').value = recVal;
+    document.getElementById('transRecEnd').value = row.HerhaalTot || '';
+    document.getElementById('recurringEndWrapper').style.display = recVal !== 'none' ? 'block' : 'none';
     new bootstrap.Modal(document.getElementById('transactionModal')).show();
   }
 
   // Reset form for new transactions
-  document.getElementById('addTransaction').addEventListener('click', () => {
-    editing = null;
-    document.querySelector('#transactionModal .modal-title').textContent = 'Nieuwe Transactie';
-    ['transDate','transDesc','transAmount'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('transType').value = '';
-    document.getElementById('incomeSubTypeWrapper').style.display = 'none';
-    document.getElementById('expenseSubTypeWrapper').style.display = 'none';
-    document.getElementById('transAccount').value = '';
-    updateAccountSelect();
-    updatePotSelect();
-    document.getElementById('transPot').value = '';
-    document.getElementById('transRecurring').value = 'none';
-  });
+    document.getElementById('addTransaction').addEventListener('click', () => {
+      editing = null;
+      document.querySelector('#transactionModal .modal-title').textContent = 'Nieuwe Transactie';
+      ['transDate','transDesc','transAmount'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('transType').value = '';
+      document.getElementById('incomeSubTypeWrapper').style.display = 'none';
+      document.getElementById('expenseSubTypeWrapper').style.display = 'none';
+      document.getElementById('transAccount').value = '';
+      updateAccountSelect();
+      updatePotSelect();
+      document.getElementById('transPot').value = '';
+      document.getElementById('transRecurring').value = 'none';
+      document.getElementById('transRecEnd').value = '';
+      document.getElementById('recurringEndWrapper').style.display = 'none';
+    });
 
   // Show subtype based on type selection
   document.getElementById('transType').addEventListener('change', () => {
     const val = document.getElementById('transType').value;
     document.getElementById('incomeSubTypeWrapper').style.display = val === 'inkomen' ? 'block' : 'none';
     document.getElementById('expenseSubTypeWrapper').style.display = val === 'uitgave' ? 'block' : 'none';
+  });
+
+  document.getElementById('transRecurring').addEventListener('change', () => {
+    const val = document.getElementById('transRecurring').value;
+    document.getElementById('recurringEndWrapper').style.display = val !== 'none' ? 'block' : 'none';
   });
 
   // Save (add/edit) transaction
@@ -233,13 +244,14 @@
     const acc = document.getElementById('transAccount').value;
     const pot = document.getElementById('transPot').value;
     const rec = document.getElementById('transRecurring').value;
+    const recEnd = document.getElementById('transRecEnd').value;
     if (!date || !desc || isNaN(amt) || !type) return alert('Vul alle velden in');
     if (type === 'transfer' && (!acc || !pot)) return alert('Selecteer rekening en pot voor transfer');
     const d = new Date(date); const y = d.getFullYear().toString(); const m = d.toLocaleString('nl-NL',{month:'long'});
     if (!rawData[y]) rawData[y] = {};
     if (!rawData[y][m]) rawData[y][m] = [];
     const sub = type === 'inkomen' ? subIncome : (type === 'uitgave' ? subExpense : null);
-    const newRow = { Datum: date, Omschrijving: desc, Bedrag: amt, Type: type, SubType: sub, Herhaal: rec, Rekening: acc, Pot: pot };
+    const newRow = { Datum: date, Omschrijving: desc, Bedrag: amt, Type: type, SubType: sub, Herhaal: rec, HerhaalTot: recEnd || null, Rekening: acc, Pot: pot };
     if (editing !== null) {
       const old = rawData[editing.year][editing.month][editing.index];
       adjustBalances(old, -1);
@@ -304,6 +316,24 @@
     pots[name] = { balance };
     renderAll();
     document.getElementById('newPotName').value=''; document.getElementById('newPotBalance').value='';
+  });
+
+  document.getElementById('addIncomeSub').addEventListener('click', () => {
+    const val = prompt('Naam nieuwe subcategorie voor inkomen?');
+    if(!val) return;
+    const sel = document.getElementById('incomeSubType');
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = val;
+    sel.appendChild(opt); sel.value = val;
+  });
+
+  document.getElementById('addExpenseSub').addEventListener('click', () => {
+    const val = prompt('Naam nieuwe subcategorie voor uitgave?');
+    if(!val) return;
+    const sel = document.getElementById('expenseSubType');
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = val;
+    sel.appendChild(opt); sel.value = val;
   });
 
   document.getElementById('fileInput').addEventListener('change', async e => {
