@@ -65,11 +65,11 @@
             <option value="rekening">Rekening (gas/licht)</option>
           </select>
         </div>
-        <!-- Subtype dropdown -->
         <div class="mb-2" id="incomeSubTypeWrapper" style="display: none;">
           <label class="form-label">Soort Inkomen</label>
           <select id="incomeSubType" class="form-select">
             <option value="salaris">Salaris</option>
+            <option value="terugbetaling">Terugbetaling</option>
             <option value="uitkering">Uitkering</option>
             <option value="bijbaan">Bijbaan</option>
             <option value="overig">Overig</option>
@@ -110,6 +110,10 @@
             <option value="paypal">PayPal</option>
             <option value="crypto">Crypto</option>
             <option value="contant">Contant</option>
+            <option value="gas">Gas</option>
+            <option value="mobiel">Mobiel</option>
+            <option value="internet_tv">Internet/TV</option>
+            <option value="simkaart">Simkaart</option>
           </select>
           <button class="btn btn-outline-success" id="addAccount">Toevoegen</button>
         </div>
@@ -132,95 +136,137 @@
     rawData = { [year]: { [month]: [] } };
     currentYear = year;
     currentMonth = month;
-    renderYearTabs(); renderMonthTabs(); renderTransactions(); updateAccountSelect();
+    renderYearTabs(); renderMonthTabs(); renderTransactions(); updateAccountList();
   }
 
   function renderYearTabs() {
     const container = document.getElementById('yearTabs'); container.innerHTML = '';
     Object.keys(rawData).sort((a,b)=>a-b).forEach(year => {
-      const li=document.createElement('li');li.className='nav-item';
-      const btn=document.createElement('button'); btn.className='nav-link'+(year===currentYear?' active':''); btn.textContent=year;
-      btn.onclick=()=>{ currentYear=year; currentMonth=Object.keys(rawData[year]).sort((a,b)=> new Date(`1 ${a}`)-new Date(`1 ${b}`))[0]; renderYearTabs(); renderMonthTabs(); renderTransactions(); };
+      const li = document.createElement('li'); li.className = 'nav-item';
+      const btn = document.createElement('button');
+      btn.className = 'nav-link' + (year===currentYear?' active':''); btn.textContent = year;
+      btn.onclick = () => {
+        currentYear = year;
+        const months = Object.keys(rawData[year] || {});
+        months.sort((a,b)=> new Date(`1 ${a}`)-new Date(`1 ${b}`));
+        currentMonth = months[0] || month;
+        renderYearTabs(); renderMonthTabs(); renderTransactions();
+      };
       li.appendChild(btn); container.appendChild(li);
     });
   }
 
   function renderMonthTabs() {
-    const container=document.getElementById('monthTabs'); container.innerHTML=''; if(!rawData[currentYear])return;
-    const months=Object.keys(rawData[currentYear]);
-    const monthOrder=["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
-    months.sort((a,b)=>monthOrder.indexOf(a.toLowerCase())-monthOrder.indexOf(b.toLowerCase()));
-    months.forEach(month=>{
-      const li=document.createElement('li');li.className='nav-item';
-      const btn=document.createElement('button'); btn.className='nav-link'+(month===currentMonth?' active':''); btn.textContent=month;
-      btn.onclick=()=>{ currentMonth=month; renderMonthTabs(); renderTransactions(); };
+    const container = document.getElementById('monthTabs'); container.innerHTML = '';
+    if (!rawData[currentYear]) return;
+    const months = Object.keys(rawData[currentYear]);
+    const monthOrder = ["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
+    months.sort((a,b)=> monthOrder.indexOf(a.toLowerCase())-monthOrder.indexOf(b.toLowerCase()));
+    months.forEach(month => {
+      const li = document.createElement('li'); li.className = 'nav-item';
+      const btn = document.createElement('button');
+      btn.className = 'nav-link' + (month===currentMonth?' active':''); btn.textContent = month;
+      btn.onclick = () => { currentMonth = month; renderMonthTabs(); renderTransactions(); };
       li.appendChild(btn); container.appendChild(li);
     });
   }
 
   function renderTransactions() {
-    const cont=document.getElementById('transactionsContainer'); cont.innerHTML='';
-    if(!rawData[currentYear]||!rawData[currentYear][currentMonth])return;
-    const table=document.createElement('table'); table.className='table table-dark table-bordered';
-    const thead=document.createElement('thead'), headRow=document.createElement('tr');
-    ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening'].forEach(k=>{const th=document.createElement('th');th.textContent=k;headRow.appendChild(th);}); thead.appendChild(headRow); table.appendChild(thead);
-    const tbody=document.createElement('tbody');
-    rawData[currentYear][currentMonth].forEach(row=>{const tr=document.createElement('tr'); tr.className=parseFloat(row.Bedrag)<0?'negative':'positive';
-      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening'].forEach(k=>{const td=document.createElement('td'); td.textContent=row[k]||''; tr.appendChild(td);}); tbody.appendChild(tr);
+    const cont = document.getElementById('transactionsContainer'); cont.innerHTML = '';
+    if (!rawData[currentYear] || !rawData[currentYear][currentMonth]) return;
+    const table = document.createElement('table'); table.className = 'table table-dark table-bordered';
+    const thead = document.createElement('thead'), headRow = document.createElement('tr');
+    ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening'].forEach(k=>{
+      const th = document.createElement('th'); th.textContent = k; headRow.appendChild(th);
+    }); thead.appendChild(headRow); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rawData[currentYear][currentMonth].forEach(row=>{
+      const tr = document.createElement('tr'); tr.className = parseFloat(row.Bedrag)<0?'negative':'positive';
+      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening'].forEach(k=>{
+        const td = document.createElement('td'); td.textContent = row[k]||''; tr.appendChild(td);
+      }); tbody.appendChild(tr);
     }); table.appendChild(tbody); cont.appendChild(table);
   }
 
-  document.getElementById('saveTransaction').addEventListener('click',()=>{
-    const date=document.getElementById('transDate').value, desc=document.getElementById('transDesc').value;
-    const amount=parseFloat(document.getElementById('transAmount').value), type=document.getElementById('transType').value;
-    const account=document.getElementById('transAccount').value, recurring=document.getElementById('transRecurring').checked;
-    const subType=document.getElementById('incomeSubType').value;
-    if(!date||!desc||isNaN(amount))return alert('Vul alle velden correct in.');
-    const d=new Date(date), y=d.getFullYear().toString(), m=d.toLocaleString('nl-NL',{month:'long'});
-    if(!rawData[y])rawData[y]={}; if(!rawData[y][m])rawData[y][m]=[];
-    rawData[y][m].push({Datum:date,Omschrijving:desc,Bedrag:amount,Type:type,SubType:type==='inkomen'?subType:null,Herhaal:recurring,Rekening:account});
-    if(account&&accounts[account]){ if(type==='inkomen'){accounts[account].balance+=amount;}else{accounts[account].balance-=amount;} updateAccountList(); }
-    currentYear=y; currentMonth=m; renderYearTabs(); renderMonthTabs(); renderTransactions(); document.querySelector('#transactionModal .btn-close').click();
-  });
-
   document.getElementById('transType').addEventListener('change',()=>{
-    document.getElementById('incomeSubTypeWrapper').style.display=(document.getElementById('transType').value==='inkomen')?'block':'none';
+    document.getElementById('incomeSubTypeWrapper').style.display =
+      document.getElementById('transType').value === 'inkomen' ? 'block' : 'none';
   });
 
-  function updateAccountSelect(){ const sel=document.getElementById('transAccount'); sel.innerHTML='';
-    Object.keys(accounts).forEach(acc=>{ const opt=document.createElement('option'); opt.value=acc; opt.textContent=`${acc} (€${accounts[acc].balance.toFixed(2)})`; sel.appendChild(opt); }); }
+  document.getElementById('saveTransaction').addEventListener('click',()=>{
+    const date = document.getElementById('transDate').value;
+    const desc = document.getElementById('transDesc').value;
+    const amount = parseFloat(document.getElementById('transAmount').value);
+    const type = document.getElementById('transType').value;
+    const subType = document.getElementById('incomeSubType').value;
+    const account = document.getElementById('transAccount').value;
+    const recurring = document.getElementById('transRecurring').checked;
+    if (!date||!desc||isNaN(amount)) return alert('Vul alle velden correct in.');
+    const d = new Date(date);
+    const y = d.getFullYear().toString();
+    const m = d.toLocaleString('nl-NL',{month:'long'});
+    if (!rawData[y]) rawData[y] = {};
+    if (!rawData[y][m]) rawData[y][m] = [];
+    rawData[y][m].push({ Datum:date, Omschrijving:desc, Bedrag:amount, Type:type,
+      SubType: type==='inkomen'? subType : null, Herhaal:recurring, Rekening:account });
+    if (account && accounts[account]) {
+      if (type==='inkomen') accounts[account].balance += amount;
+      else accounts[account].balance -= amount;
+      updateAccountList();
+    }
+    currentYear=y; currentMonth=m; renderYearTabs(); renderMonthTabs(); renderTransactions();
+    document.querySelector('#transactionModal .btn-close').click();
+  });
 
-  function updateAccountList(){ const list=document.getElementById('accountList'); list.innerHTML='';
-    Object.keys(accounts).forEach(name=>{
-      if(typeof accounts[name]==='number')accounts[name]={balance:accounts[name],type:'onbekend'};
-      const li=document.createElement('li'); li.className='list-group-item bg-dark text-white';
-      const span=document.createElement('span'); span.textContent=`${name} (€${accounts[name].balance.toFixed(2)}) - ${accounts[name].type}`;
-      const del=document.createElement('button'); del.className='btn btn-sm btn-danger float-end'; del.textContent='✖'; del.onclick=()=>{delete accounts[name];updateAccountList();};
-      list.append(span,del); list.appendChild(li);
-    }); updateAccountSelect(); }
+  function updateAccountList() {
+    const list = document.getElementById('accountList'); list.innerHTML = '';
+    Object.entries(accounts).forEach(([name,obj])=>{
+      const li = document.createElement('li'); li.className='list-group-item bg-dark text-white d-flex justify-content-between align-items-center';
+      const info = document.createElement('span');
+      info.textContent = `${name} (€${obj.balance.toFixed(2)}) - ${obj.type}`;
+      const del = document.createElement('button'); del.className='btn btn-sm btn-danger'; del.textContent='✖';
+      del.onclick = ()=>{ delete accounts[name]; updateAccountList(); };
+      li.append(info, del); list.appendChild(li);
+    }); updateAccountSelect();
+  }
+
+  function updateAccountSelect() {
+    const sel = document.getElementById('transAccount'); sel.innerHTML = '';
+    Object.keys(accounts).forEach(acc=>{
+      const opt=document.createElement('option');
+      opt.value=acc; opt.textContent=`${acc} (€${accounts[acc].balance.toFixed(2)})`;
+      sel.appendChild(opt);
+    });
+  }
 
   document.getElementById('addAccount').addEventListener('click',()=>{
-    const name=document.getElementById('newAccountName').value.trim();
-    const balance=parseFloat(document.getElementById('newAccountBalance').value);
-    const type=document.getElementById('newAccountType').value;
-    if(!name||isNaN(balance))return;
-    accounts[name]={balance,type}; document.getElementById('newAccountName').value=''; document.getElementById('newAccountBalance').value=''; updateAccountList();
+    const name = document.getElementById('newAccountName').value.trim();
+    const balance = parseFloat(document.getElementById('newAccountBalance').value);
+    const type = document.getElementById('newAccountType').value;
+    if (!name||isNaN(balance)) return;
+    accounts[name] = { balance, type };
+    document.getElementById('newAccountName').value='';
+    document.getElementById('newAccountBalance').value='';
+    updateAccountList();
   });
 
   document.getElementById('fileInput').addEventListener('change',async e=>{
-    const file=e.target.files[0]; if(!file)return; try{
-      const txt=await file.text(), parsed=JSON.parse(txt);
-      rawData=parsed.data||parsed; accounts=parsed.accounts||{}; Object.keys(accounts).forEach(n=>{if(typeof accounts[n]==='number')accounts[n]={balance:accounts[n],type:'onbekend'};});
-      currentYear=Object.keys(rawData)[0]; currentMonth=Object.keys(rawData[currentYear])[0]; renderYearTabs(); renderMonthTabs(); renderTransactions(); updateAccountList();
-    }catch{initializeTemplate();}
+    const file=e.target.files[0]; if(!file) return;
+    try {
+      const txt = await file.text(); const parsed = JSON.parse(txt);
+      rawData = parsed.data||parsed; accounts = parsed.accounts||{};
+      Object.entries(accounts).forEach(([k,v])=>{ if(typeof v==='number') accounts[k]={balance:v,type:'onbekend'}; });
+      currentYear=Object.keys(rawData)[0]; currentMonth=Object.keys(rawData[currentYear])[0];
+      renderYearTabs(); renderMonthTabs(); renderTransactions(); updateAccountList();
+    } catch { initializeTemplate(); }
   });
 
   document.getElementById('downloadBtn').addEventListener('click',()=>{
-    const blob=new Blob([JSON.stringify({data:rawData,accounts},null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url;a.download='geldzaken.json';a.click();URL.revokeObjectURL(url);
+    const blob=new Blob([JSON.stringify({ data: rawData, accounts },null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='geldzaken.json'; a.click(); URL.revokeObjectURL(url);
   });
 
-  window.addEventListener('DOMContentLoaded',initializeTemplate);
+  window.addEventListener('DOMContentLoaded', initializeTemplate);
 </script>
 </body>
 </html>
