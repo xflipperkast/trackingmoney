@@ -18,6 +18,7 @@
   <div class="mt-4" id="transactionsContainer"></div>
   <div class="mt-3">
     <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#accountsModal">🏦 Rekeningen beheren</button>
+    <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#potsModal">💰 Potten beheren</button>
     <button id="addTransaction" class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#transactionModal">➕ Transactie toevoegen</button>
     <button id="downloadBtn" class="btn btn-success">Download JSON</button>
   </div>
@@ -40,6 +41,7 @@
         <div id="incomeSubTypeWrapper" class="mb-2" style="display:none;"><label class="form-label">Soort Inkomen</label><select id="incomeSubType" class="form-select"><option value="salaris">Salaris</option><option value="terugbetaling">Terugbetaling</option><option value="uitkering">Uitkering</option><option value="bijbaan">Bijbaan</option><option value="overig">Overig</option></select></div>
         <div id="expenseSubTypeWrapper" class="mb-2" style="display:none;"><label class="form-label">Soort Uitgave</label><select id="expenseSubType" class="form-select"><option value="SimKaart">SimKaart</option><option value="Internet/tv">Internet/tv</option><option value="Boodschappen">Boodschappen</option><option value="autoverzekering">Autoverzekering</option><option value="andere">Andere</option></select></div>
         <div class="mb-2"><label class="form-label">Rekening</label><select id="transAccount" class="form-select"></select></div>
+        <div class="mb-2"><label class="form-label">Pot</label><select id="transPot" class="form-select"></select></div>
         <div class="mb-2"><label class="form-label">Herhaling</label><select id="transRecurring" class="form-select"><option value="none">Geen</option><option value="monthly">Maandelijks</option><option value="weekly">Wekelijks</option><option value="yearly">Jaarlijks</option></select></div>
       </div>
       <div class="modal-footer">
@@ -58,6 +60,19 @@
       <div class="modal-body">
         <ul id="accountList" class="list-group mb-3"></ul>
         <div class="input-group mb-2"><input type="text" id="newAccountName" class="form-control" placeholder="Naam (bijv. PayPal)"><input type="number" id="newAccountBalance" class="form-control" placeholder="Saldo (€)"><button class="btn btn-outline-success" id="addAccount">Toevoegen</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Potten -->
+<div class="modal fade" id="potsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Potten</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <ul id="potList" class="list-group mb-3"></ul>
+        <div class="input-group mb-2"><input type="text" id="newPotName" class="form-control" placeholder="Naam"><input type="number" id="newPotBalance" class="form-control" placeholder="Saldo (€)"><button class="btn btn-outline-success" id="addPot">Toevoegen</button></div>
       </div>
     </div>
   </div>
