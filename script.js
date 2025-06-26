@@ -44,27 +44,37 @@
     });
   }
 
-  // Apply recurring transactions from previous month
+  // Apply recurring transactions up to the selected month
   function applyRecurring() {
-    if (!rawData[currentYear] || !rawData[currentYear][currentMonth]) return;
-    const months = Object.keys(rawData[currentYear]).sort((a,b) => monthOrder.indexOf(a.toLowerCase()) - monthOrder.indexOf(b.toLowerCase()));
-    const idx = months.indexOf(currentMonth);
-    if (idx > 0) {
-      const prev = months[idx - 1];
-      rawData[currentYear][prev].forEach(row => {
-        if (row.Herhaal) {
-          const day = new Date(row.Datum).getDate();
-          const newDate = new Date(new Date().getFullYear(), monthOrder.indexOf(currentMonth.toLowerCase()), day).toISOString().split('T')[0];
-          const exists = rawData[currentYear][currentMonth].some(r => r.Datum === newDate && r.Omschrijving === row.Omschrijving);
+    const cYear = parseInt(currentYear);
+    const cMonthIdx = monthOrder.indexOf(currentMonth.toLowerCase());
+    Object.entries(rawData).forEach(([y, months]) => {
+      Object.entries(months).forEach(([mName, rows]) => {
+        rows.forEach(row => {
+          let freq = row.Herhaal;
+          if (!freq || freq === 'none') return;
+          if (freq === true) freq = 'monthly';
+          const next = new Date(row.Datum);
+          if (freq === 'monthly') next.setMonth(next.getMonth() + 1);
+          else if (freq === 'weekly') next.setDate(next.getDate() + 7);
+          else if (freq === 'yearly') next.setFullYear(next.getFullYear() + 1);
+          const nYear = next.getFullYear();
+          const nMonthIdx = next.getMonth();
+          if (nYear > cYear || (nYear === cYear && nMonthIdx > cMonthIdx)) return;
+          const iso = next.toISOString().split('T')[0];
+          const nMonthName = monthOrder[nMonthIdx];
+          if (!rawData[nYear]) rawData[nYear] = {};
+          if (!rawData[nYear][nMonthName]) rawData[nYear][nMonthName] = [];
+          const exists = rawData[nYear][nMonthName].some(r => r.Datum === iso && r.Omschrijving === row.Omschrijving);
           if (!exists) {
-            rawData[currentYear][currentMonth].push({ ...row, Datum: newDate });
+            rawData[nYear][nMonthName].push({ ...row, Datum: iso });
             if (row.Rekening && accounts[row.Rekening]) {
               accounts[row.Rekening].balance += row.Type === 'inkomen' ? row.Bedrag : -row.Bedrag;
             }
           }
-        }
+        });
       });
-    }
+    });
   }
 
   function computeYearStartBalance(year) {
@@ -83,6 +93,20 @@
     return finalTotal - netAfter;
   }
 
+  function computeMonthEndBalance(year, month) {
+    let bal = computeYearStartBalance(year);
+    for (const m of monthOrder) {
+      if (rawData[year] && rawData[year][m]) {
+        rawData[year][m].forEach(r => {
+          const v = parseFloat(r.Bedrag);
+          bal += r.Type === 'inkomen' ? v : -v;
+        });
+      }
+      if (m === month) break;
+    }
+    return bal;
+  }
+
   // Render transactions table
   function renderTransactions() {
     const container = document.getElementById('transactionsContainer'); container.innerHTML = '';
@@ -90,7 +114,7 @@
     if (!rawData[currentYear][currentMonth]) rawData[currentYear][currentMonth] = [];
 
     const monthRows = rawData[currentYear][currentMonth];
-    const totalBal = Object.values(accounts).reduce((s,a)=>s+a.balance,0);
+    const totalBal = computeMonthEndBalance(currentYear, currentMonth);
     const salary = monthRows.filter(r=>r.Type==='inkomen' && r.SubType==='salaris').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const expenses = monthRows.filter(r=>r.Type==='uitgave').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const net = monthRows.reduce((s,r)=>s+(r.Type==='inkomen'?parseFloat(r.Bedrag):-parseFloat(r.Bedrag)),0);
@@ -117,7 +141,8 @@
 
     const infoBottom = document.createElement('div');
     infoBottom.className = 'mt-2';
-    infoBottom.textContent = `Salaris: €${salary.toFixed(2)} | Uitgaven: €${expenses.toFixed(2)} | Verschil deze maand: €${net.toFixed(2)} | Over van salaris: €${(salary-expenses).toFixed(2)}`;
+    const diff = salary - expenses;
+    infoBottom.innerHTML = `Salaris: €${salary.toFixed(2)} | Uitgaven: €${expenses.toFixed(2)} | Verschil deze maand: €${net.toFixed(2)} | Over van salaris: <span class="${diff < 0 ? 'text-danger' : 'text-success'}">€${diff.toFixed(2)}</span>`;
     container.appendChild(infoBottom);
   }
 
@@ -138,7 +163,10 @@
     }
     updateAccountSelect();
     document.getElementById('transAccount').value = row.Rekening;
-    document.getElementById('transRecurring').checked = row.Herhaal;
+    let recVal = 'none';
+    if (row.Herhaal === true) recVal = 'monthly';
+    else if (typeof row.Herhaal === 'string') recVal = row.Herhaal;
+    document.getElementById('transRecurring').value = recVal;
     new bootstrap.Modal(document.getElementById('transactionModal')).show();
   }
 
@@ -151,7 +179,7 @@
     document.getElementById('incomeSubTypeWrapper').style.display = 'none';
     document.getElementById('expenseSubTypeWrapper').style.display = 'none';
     document.getElementById('transAccount').value = '';
-    document.getElementById('transRecurring').checked = false;
+    document.getElementById('transRecurring').value = 'none';
   });
 
   // Show subtype based on type selection
@@ -170,7 +198,7 @@
     const subIncome = document.getElementById('incomeSubType').value;
     const subExpense = document.getElementById('expenseSubType').value;
     const acc = document.getElementById('transAccount').value;
-    const rec = document.getElementById('transRecurring').checked;
+    const rec = document.getElementById('transRecurring').value;
     if (!date || !desc || isNaN(amt) || !type) return alert('Vul alle velden in');
     const d = new Date(date); const y = d.getFullYear().toString(); const m = d.toLocaleString('nl-NL',{month:'long'});
     if (!rawData[y]) rawData[y] = {};
