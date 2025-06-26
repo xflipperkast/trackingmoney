@@ -29,12 +29,13 @@
   <div class="mt-4" id="transactionsContainer"></div>
 
   <div class="mt-3">
+    <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#accountsModal">🏦 Rekeningen beheren</button>
     <button id="addTransaction" class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#transactionModal">➕ Transactie toevoegen</button>
     <button id="downloadBtn" class="btn btn-success">Download JSON</button>
   </div>
 </div>
 
-<!-- Modal voor nieuwe transactie -->
+<!-- Modal: Transactie -->
 <div class="modal fade" id="transactionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -64,6 +65,10 @@
             <option value="rekening">Rekening (gas/licht)</option>
           </select>
         </div>
+        <div class="mb-2">
+          <label class="form-label">Rekening</label>
+          <select id="transAccount" class="form-select"></select>
+        </div>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="transRecurring">
           <label class="form-check-label">Automatische incasso</label>
@@ -77,11 +82,32 @@
   </div>
 </div>
 
+<!-- Modal: Rekeningen -->
+<div class="modal fade" id="accountsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Rekeningen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+      </div>
+      <div class="modal-body">
+        <ul id="accountList" class="list-group mb-3"></ul>
+        <div class="input-group">
+          <input type="text" id="newAccountName" class="form-control" placeholder="Naam (bijv. PayPal)">
+          <input type="number" id="newAccountBalance" class="form-control" placeholder="Saldo (€)">
+          <button class="btn btn-outline-success" id="addAccount">Toevoegen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   let rawData = {};
   let currentYear = null;
   let currentMonth = null;
+  let accounts = {};
 
   function initializeTemplate() {
     const now = new Date();
@@ -97,12 +123,13 @@
     renderYearTabs();
     renderMonthTabs();
     renderTransactions();
+    updateAccountSelect();
   }
 
   function renderYearTabs() {
     const container = document.getElementById('yearTabs');
     container.innerHTML = '';
-    const years = Object.keys(rawData || {}).sort();
+    const years = Object.keys(rawData || {}).sort((a, b) => a - b);
     years.forEach(year => {
       const li = document.createElement('li');
       li.className = 'nav-item';
@@ -111,7 +138,7 @@
       btn.textContent = year;
       btn.onclick = () => {
         currentYear = year;
-        currentMonth = Object.keys(rawData[year])[0];
+        currentMonth = Object.keys(rawData[year] || {}).sort((a, b) => new Date(`${a} 1`) - new Date(`${b} 1`))[0];
         renderYearTabs();
         renderMonthTabs();
         renderTransactions();
@@ -125,7 +152,8 @@
     const container = document.getElementById('monthTabs');
     container.innerHTML = '';
     if (!currentYear || !rawData[currentYear]) return;
-    const months = Object.keys(rawData[currentYear] || {});
+    const months = Object.keys(rawData[currentYear] || {})
+      .sort((a, b) => new Date(`1 ${a}`) - new Date(`1 ${b}`));
     months.forEach(month => {
       const li = document.createElement('li');
       li.className = 'nav-item';
@@ -153,7 +181,7 @@
 
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    ['Datum', 'Omschrijving', 'Bedrag', 'Type'].forEach(k => {
+    ['Datum', 'Omschrijving', 'Bedrag', 'Type', 'Rekening'].forEach(k => {
       const th = document.createElement('th');
       th.textContent = k;
       headRow.appendChild(th);
@@ -165,7 +193,7 @@
     transactions.forEach(row => {
       const tr = document.createElement('tr');
       tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
-      ['Datum', 'Omschrijving', 'Bedrag', 'Type'].forEach(k => {
+      ['Datum', 'Omschrijving', 'Bedrag', 'Type', 'Rekening'].forEach(k => {
         const td = document.createElement('td');
         td.textContent = row[k] || '';
         tr.appendChild(td);
@@ -181,6 +209,7 @@
     const desc = document.getElementById('transDesc').value;
     const amount = parseFloat(document.getElementById('transAmount').value);
     const type = document.getElementById('transType').value;
+    const account = document.getElementById('transAccount').value;
     const recurring = document.getElementById('transRecurring').checked;
     if (!date || !desc || isNaN(amount)) return alert('Vul alle velden correct in.');
 
@@ -189,7 +218,13 @@
     const month = d.toLocaleString('nl-NL', { month: 'long' });
     if (!rawData[year]) rawData[year] = {};
     if (!rawData[year][month]) rawData[year][month] = [];
-    rawData[year][month].push({ Datum: date, Omschrijving: desc, Bedrag: amount, Type: type, Herhaal: recurring });
+    rawData[year][month].push({ Datum: date, Omschrijving: desc, Bedrag: amount, Type: type, Herhaal: recurring, Rekening: account });
+
+    // Balans bijwerken
+    if (account && accounts[account] !== undefined) {
+      accounts[account] += amount;
+      updateAccountList();
+    }
 
     currentYear = year;
     currentMonth = month;
@@ -200,17 +235,53 @@
     document.querySelector('#transactionModal .btn-close').click();
   });
 
+  function updateAccountSelect() {
+    const select = document.getElementById('transAccount');
+    select.innerHTML = '';
+    for (let acc in accounts) {
+      const opt = document.createElement('option');
+      opt.value = acc;
+      opt.textContent = acc;
+      select.appendChild(opt);
+    }
+  }
+
+  function updateAccountList() {
+    const list = document.getElementById('accountList');
+    list.innerHTML = '';
+    for (let name in accounts) {
+      const li = document.createElement('li');
+      li.className = 'list-group-item bg-dark text-white d-flex justify-content-between';
+      li.textContent = `${name} (€${accounts[name].toFixed(2)})`;
+      list.appendChild(li);
+    }
+    updateAccountSelect();
+  }
+
+  document.getElementById('addAccount').addEventListener('click', () => {
+    const name = document.getElementById('newAccountName').value.trim();
+    const balance = parseFloat(document.getElementById('newAccountBalance').value);
+    if (!name || isNaN(balance)) return;
+    accounts[name] = balance;
+    document.getElementById('newAccountName').value = '';
+    document.getElementById('newAccountBalance').value = '';
+    updateAccountList();
+  });
+
   document.getElementById('fileInput').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
     try {
       const text = await file.text();
-      rawData = JSON.parse(text);
-      currentYear = Object.keys(rawData || {})[0];
-      currentMonth = Object.keys(rawData?.[currentYear] || {})[0];
+      const parsed = JSON.parse(text);
+      rawData = parsed.data || parsed; // allow wrapped format
+      accounts = parsed.accounts || {};
+      currentYear = Object.keys(rawData || {}).sort()[0];
+      currentMonth = Object.keys(rawData?.[currentYear] || {}).sort()[0];
       renderYearTabs();
       renderMonthTabs();
       renderTransactions();
+      updateAccountList();
     } catch (err) {
       alert('Kon bestand niet laden, start template.');
       initializeTemplate();
@@ -218,7 +289,7 @@
   });
 
   document.getElementById('downloadBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ data: rawData, accounts: accounts }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
