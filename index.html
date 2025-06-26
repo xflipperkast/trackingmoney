@@ -38,11 +38,37 @@
         <div class="mb-2"><label class="form-label">Omschrijving</label><input type="text" id="transDesc" class="form-control"></div>
         <div class="mb-2"><label class="form-label">Bedrag</label><input type="number" id="transAmount" class="form-control"></div>
         <div class="mb-2"><label class="form-label">Type</label><select id="transType" class="form-select"><option value="" disabled selected>Kies type...</option><option value="inkomen">Inkomen</option><option value="uitgave">Uitgave</option><option value="transfer">Naar pot</option></select></div>
-        <div id="incomeSubTypeWrapper" class="mb-2" style="display:none;"><label class="form-label">Soort Inkomen</label><select id="incomeSubType" class="form-select"><option value="salaris">Salaris</option><option value="terugbetaling">Terugbetaling</option><option value="uitkering">Uitkering</option><option value="bijbaan">Bijbaan</option><option value="overig">Overig</option></select></div>
-        <div id="expenseSubTypeWrapper" class="mb-2" style="display:none;"><label class="form-label">Soort Uitgave</label><select id="expenseSubType" class="form-select"><option value="SimKaart">SimKaart</option><option value="Internet/tv">Internet/tv</option><option value="Boodschappen">Boodschappen</option><option value="autoverzekering">Autoverzekering</option><option value="andere">Andere</option></select></div>
+        <div id="incomeSubTypeWrapper" class="mb-2" style="display:none;">
+          <label class="form-label">Soort Inkomen</label>
+          <select id="incomeSubType" class="form-select">
+            <option value="salaris">Salaris</option>
+            <option value="terugbetaling">Terugbetaling</option>
+            <option value="uitkering">Uitkering</option>
+            <option value="bijbaan">Bijbaan</option>
+            <option value="toeslagen">Toeslagen</option>
+            <option value="overig">Overig</option>
+          </select>
+          <button type="button" id="addIncomeSub" class="btn btn-sm btn-outline-success mt-1">Eigen categorie</button>
+        </div>
+        <div id="expenseSubTypeWrapper" class="mb-2" style="display:none;">
+          <label class="form-label">Soort Uitgave</label>
+          <select id="expenseSubType" class="form-select">
+            <option value="SimKaart">SimKaart</option>
+            <option value="Internet/tv">Internet/tv</option>
+            <option value="Boodschappen">Boodschappen</option>
+            <option value="autoverzekering">Autoverzekering</option>
+            <option value="hypotheek overleidings risico">Hypotheek overleidings risico</option>
+            <option value="pensioen">Pensioen</option>
+            <option value="rechtsbijstand">Rechtsbijstand</option>
+            <option value="kapper">Kapper</option>
+            <option value="andere">Andere</option>
+          </select>
+          <button type="button" id="addExpenseSub" class="btn btn-sm btn-outline-success mt-1">Eigen categorie</button>
+        </div>
         <div class="mb-2"><label class="form-label">Rekening</label><select id="transAccount" class="form-select"></select></div>
         <div class="mb-2"><label class="form-label">Pot</label><select id="transPot" class="form-select"></select></div>
         <div class="mb-2"><label class="form-label">Herhaling</label><select id="transRecurring" class="form-select"><option value="none">Geen</option><option value="monthly">Maandelijks</option><option value="weekly">Wekelijks</option><option value="yearly">Jaarlijks</option></select></div>
+        <div id="recurringEndWrapper" class="mb-2" style="display:none;"><label class="form-label">Herhaling stopt op</label><input type="date" id="transRecEnd" class="form-control"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleer</button>
