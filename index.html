@@ -224,9 +224,14 @@
 
     // Balans bijwerken
     if (account && accounts[account] !== undefined) {
-      accounts[account] += amount;
+      if (type === 'inkomen') {
+        accounts[account] += amount;
+      } else {
+        accounts[account] -= amount;
+      }
       updateAccountList();
     }
+
 
     currentYear = year;
     currentMonth = month;
