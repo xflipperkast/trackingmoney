@@ -47,6 +47,20 @@
   }
 
   // Apply recurring transactions up to the selected month
+  function adjustBalances(row, mult = 1) {
+    const amt = parseFloat(row.Bedrag) * mult;
+    if (row.Type === 'inkomen') {
+      if (row.Rekening && accounts[row.Rekening]) accounts[row.Rekening].balance += amt;
+      if (row.Pot && pots[row.Pot]) pots[row.Pot].balance += amt;
+    } else if (row.Type === 'uitgave') {
+      if (row.Rekening && accounts[row.Rekening]) accounts[row.Rekening].balance -= amt;
+      if (row.Pot && pots[row.Pot]) pots[row.Pot].balance -= amt;
+    } else if (row.Type === 'transfer') {
+      if (row.Rekening && accounts[row.Rekening]) accounts[row.Rekening].balance -= amt;
+      if (row.Pot && pots[row.Pot]) pots[row.Pot].balance += amt;
+    }
+  }
+
   function applyRecurring() {
     const cYear = parseInt(currentYear);
     const cMonthIdx = monthOrder.indexOf(currentMonth.toLowerCase());
@@ -69,13 +83,9 @@
           if (!rawData[nYear][nMonthName]) rawData[nYear][nMonthName] = [];
           const exists = rawData[nYear][nMonthName].some(r => r.Datum === iso && r.Omschrijving === row.Omschrijving);
           if (!exists) {
-            rawData[nYear][nMonthName].push({ ...row, Datum: iso });
-            if (row.Rekening && accounts[row.Rekening]) {
-              accounts[row.Rekening].balance += row.Type === 'inkomen' ? row.Bedrag : -row.Bedrag;
-            }
-            if (row.Pot && pots[row.Pot]) {
-              pots[row.Pot].balance += row.Type === 'inkomen' ? row.Bedrag : -row.Bedrag;
-            }
+            const newEntry = { ...row, Datum: iso };
+            rawData[nYear][nMonthName].push(newEntry);
+            adjustBalances(newEntry, 1);
           }
         });
       });
@@ -90,7 +100,8 @@
         Object.values(months).forEach(rows => {
           rows.forEach(r => {
             const v = parseFloat(r.Bedrag);
-            netAfter += r.Type === 'inkomen' ? v : -v;
+            if (r.Type === 'inkomen') netAfter += v;
+            else if (r.Type === 'uitgave') netAfter -= v;
           });
         });
       }
@@ -104,7 +115,8 @@
       if (rawData[year] && rawData[year][m]) {
         rawData[year][m].forEach(r => {
           const v = parseFloat(r.Bedrag);
-          bal += r.Type === 'inkomen' ? v : -v;
+          if (r.Type === 'inkomen') bal += v;
+          else if (r.Type === 'uitgave') bal -= v;
         });
       }
       if (m === month) break;
@@ -122,7 +134,11 @@
     const totalBal = computeMonthEndBalance(currentYear, currentMonth);
     const salary = monthRows.filter(r=>r.Type==='inkomen' && r.SubType==='salaris').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const expenses = monthRows.filter(r=>r.Type==='uitgave').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
-    const net = monthRows.reduce((s,r)=>s+(r.Type==='inkomen'?parseFloat(r.Bedrag):-parseFloat(r.Bedrag)),0);
+    const net = monthRows.reduce((s,r)=>{
+      if(r.Type==='inkomen') return s+parseFloat(r.Bedrag);
+      if(r.Type==='uitgave') return s-parseFloat(r.Bedrag);
+      return s;
+    },0);
     const startYear = computeYearStartBalance(currentYear);
 
     const infoTop = document.createElement('div');
@@ -139,12 +155,12 @@
 
     const table = document.createElement('table'); table.className = 'table table-dark table-bordered';
     const thead = document.createElement('thead'), headRow = document.createElement('tr');
-    ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Acties'].forEach(h => { const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th); });
+    ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot','Acties'].forEach(h => { const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th); });
     thead.appendChild(headRow); table.appendChild(thead);
     const tbody = document.createElement('tbody');
     rawData[currentYear][currentMonth].forEach((row, i) => {
       const tr = document.createElement('tr'); tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
-      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening'].forEach(k => { const td = document.createElement('td'); td.textContent = row[k] || ''; tr.appendChild(td); });
+      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot'].forEach(k => { const td = document.createElement('td'); td.textContent = row[k] || ''; tr.appendChild(td); });
       const tdAct = document.createElement('td'); const btn = document.createElement('button'); btn.className = 'btn btn-sm btn-warning'; btn.textContent = '✏️'; btn.onclick = () => openEdit(i);
       tdAct.appendChild(btn); tr.appendChild(tdAct);
       tbody.appendChild(tr);
@@ -218,6 +234,7 @@
     const pot = document.getElementById('transPot').value;
     const rec = document.getElementById('transRecurring').value;
     if (!date || !desc || isNaN(amt) || !type) return alert('Vul alle velden in');
+    if (type === 'transfer' && (!acc || !pot)) return alert('Selecteer rekening en pot voor transfer');
     const d = new Date(date); const y = d.getFullYear().toString(); const m = d.toLocaleString('nl-NL',{month:'long'});
     if (!rawData[y]) rawData[y] = {};
     if (!rawData[y][m]) rawData[y][m] = [];
@@ -225,13 +242,11 @@
     const newRow = { Datum: date, Omschrijving: desc, Bedrag: amt, Type: type, SubType: sub, Herhaal: rec, Rekening: acc, Pot: pot };
     if (editing !== null) {
       const old = rawData[editing.year][editing.month][editing.index];
-      accounts[old.Rekening].balance -= (old.Type === 'inkomen' ? old.Bedrag : -old.Bedrag);
-      if (old.Pot && pots[old.Pot]) pots[old.Pot].balance -= (old.Type === 'inkomen' ? old.Bedrag : -old.Bedrag);
+      adjustBalances(old, -1);
       rawData[editing.year][editing.month][editing.index] = newRow;
       editing = null;
     } else rawData[y][m].push(newRow);
-    if (acc && accounts[acc]) accounts[acc].balance += (type === 'inkomen' ? amt : -amt);
-    if (pot && pots[pot]) pots[pot].balance += (type === 'inkomen' ? amt : -amt);
+    adjustBalances(newRow, 1);
     renderAll();
     bootstrap.Modal.getInstance(document.getElementById('transactionModal')).hide();
   });
@@ -271,7 +286,7 @@
   }
 
   function updateAccountSelect() {
-    const sel = document.getElementById('transAccount'); sel.innerHTML = '';
+    const sel = document.getElementById('transAccount'); sel.innerHTML = '<option value="">(geen)</option>';
     Object.keys(accounts).forEach(acc => { const opt=document.createElement('option'); opt.value=acc; opt.textContent=`${acc} (€${accounts[acc].balance.toFixed(2)})`; sel.appendChild(opt); });
   }
 
