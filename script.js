@@ -102,7 +102,7 @@
           rows.forEach(r => {
             const v = parseFloat(r.Bedrag);
             if (r.Type === 'inkomen') netAfter += v;
-            else if (r.Type === 'uitgave') netAfter -= v;
+            else if (r.Type === 'uitgave' || r.Type === 'transfer') netAfter -= v;
           });
         });
       }
@@ -117,12 +117,35 @@
         rawData[year][m].forEach(r => {
           const v = parseFloat(r.Bedrag);
           if (r.Type === 'inkomen') bal += v;
-          else if (r.Type === 'uitgave') bal -= v;
+          else if (r.Type === 'uitgave' || r.Type === 'transfer') bal -= v;
         });
       }
       if (m === month) break;
     }
     return bal;
+  }
+
+  function computePotBalances(year, month) {
+    const ySel = parseInt(year);
+    const mSel = monthOrder.indexOf(month.toLowerCase());
+    const res = {};
+    Object.entries(pots).forEach(([n, o]) => { res[n] = o.balance; });
+    Object.entries(rawData).forEach(([y, months]) => {
+      const yNum = parseInt(y);
+      Object.entries(months).forEach(([mName, rows]) => {
+        const mIdx = monthOrder.indexOf(mName.toLowerCase());
+        rows.forEach(r => {
+          if (!r.Pot || res[r.Pot] === undefined) return;
+          const after = yNum > ySel || (yNum === ySel && mIdx > mSel);
+          if (!after) return;
+          const v = parseFloat(r.Bedrag);
+          if (r.Type === 'inkomen') res[r.Pot] -= v;
+          else if (r.Type === 'uitgave') res[r.Pot] += v;
+          else if (r.Type === 'transfer') res[r.Pot] -= v;
+        });
+      });
+    });
+    return res;
   }
 
   // Render transactions table
@@ -135,7 +158,7 @@
     const totalBal = computeMonthEndBalance(currentYear, currentMonth);
     const salary = monthRows.filter(r=>r.Type==='inkomen' && r.SubType==='salaris').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const expenses = monthRows.filter(r=>r.Type==='uitgave').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
-    const fixed = monthRows.filter(r=>r.Type==='uitgave' && r.Herhaal && r.Herhaal!=='none').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
+    const fixed = monthRows.filter(r=>(r.Type==='uitgave' || r.Type==='transfer') && r.Herhaal && r.Herhaal!=='none').reduce((s,r)=>s+parseFloat(r.Bedrag),0);
     const net = monthRows.reduce((s,r)=>{
       if(r.Type==='inkomen') return s+parseFloat(r.Bedrag);
       if(r.Type==='uitgave') return s-parseFloat(r.Bedrag);
@@ -151,7 +174,8 @@
     if(Object.keys(pots).length){
       const infoPots=document.createElement('div');
       infoPots.className='mb-2';
-      infoPots.textContent='Potten: '+Object.entries(pots).map(([n,o])=>`${n}: €${o.balance.toFixed(2)}`).join(' | ');
+      const monthPots = computePotBalances(currentYear, currentMonth);
+      infoPots.textContent='Potten: '+Object.entries(monthPots).map(([n,o])=>`${n}: €${o.toFixed(2)}`).join(' | ');
       container.appendChild(infoPots);
     }
 
