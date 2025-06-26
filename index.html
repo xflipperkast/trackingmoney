@@ -152,8 +152,10 @@
     const container = document.getElementById('monthTabs');
     container.innerHTML = '';
     if (!currentYear || !rawData[currentYear]) return;
-    const months = Object.keys(rawData[currentYear] || {})
-      .sort((a, b) => new Date(`1 ${a}`) - new Date(`1 ${b}`));
+    const months = Object.keys(rawData[currentYear] || {});
+    const monthOrder = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+    months.sort((a, b) => monthOrder.indexOf(a.toLowerCase()) - monthOrder.indexOf(b.toLowerCase()));
+
     months.forEach(month => {
       const li = document.createElement('li');
       li.className = 'nav-item';
@@ -251,12 +253,49 @@
     list.innerHTML = '';
     for (let name in accounts) {
       const li = document.createElement('li');
-      li.className = 'list-group-item bg-dark text-white d-flex justify-content-between';
-      li.textContent = `${name} (€${accounts[name].toFixed(2)})`;
+      li.className = 'list-group-item bg-dark text-white d-flex justify-content-between align-items-center';
+  
+      const inputName = document.createElement('input');
+      inputName.type = 'text';
+      inputName.value = name;
+      inputName.className = 'form-control me-2';
+      inputName.style.maxWidth = '30%';
+      inputName.onchange = (e) => {
+        const newName = e.target.value.trim();
+        if (newName && newName !== name) {
+          accounts[newName] = accounts[name];
+          delete accounts[name];
+          updateAccountList();
+        }
+      };
+  
+      const inputBalance = document.createElement('input');
+      inputBalance.type = 'number';
+      inputBalance.value = accounts[name];
+      inputBalance.className = 'form-control me-2';
+      inputBalance.style.maxWidth = '30%';
+      inputBalance.onchange = (e) => {
+        accounts[name] = parseFloat(e.target.value);
+      };
+  
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✖';
+      delBtn.className = 'btn btn-sm btn-danger';
+      delBtn.onclick = () => {
+        if (confirm(`Verwijder rekening ${name}?`)) {
+          delete accounts[name];
+          updateAccountList();
+        }
+      };
+  
+      li.appendChild(inputName);
+      li.appendChild(inputBalance);
+      li.appendChild(delBtn);
       list.appendChild(li);
     }
     updateAccountSelect();
   }
+
 
   document.getElementById('addAccount').addEventListener('click', () => {
     const name = document.getElementById('newAccountName').value.trim();
