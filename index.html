@@ -41,7 +41,7 @@
   function renderYearTabs() {
     const container = document.getElementById('yearTabs');
     container.innerHTML = '';
-    const years = Object.keys(rawData).sort();
+    const years = Object.keys(rawData || {}).sort();
     years.forEach(year => {
       const li = document.createElement('li');
       li.className = 'nav-item';
@@ -64,7 +64,7 @@
     const container = document.getElementById('monthTabs');
     container.innerHTML = '';
     if (!currentYear || !rawData[currentYear]) return;
-    const months = Object.keys(rawData[currentYear]);
+    const months = Object.keys(rawData[currentYear] || {});
     months.forEach(month => {
       const li = document.createElement('li');
       li.className = 'nav-item';
@@ -84,7 +84,7 @@
   function renderTransactions() {
     const container = document.getElementById('transactionsContainer');
     container.innerHTML = '';
-    if (!currentYear || !currentMonth || !rawData[currentYear][currentMonth]) return;
+    if (!currentYear || !currentMonth || !rawData[currentYear] || !rawData[currentYear][currentMonth]) return;
 
     const transactions = rawData[currentYear][currentMonth];
     const table = document.createElement('table');
@@ -137,23 +137,33 @@
   document.getElementById('fileInput').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.name.endsWith('.json')) {
-      const text = await file.text();
-      rawData = JSON.parse(text);
-    } else {
-      const reader = new FileReader();
-      reader.onload = evt => {
-        const wb = XLSX.read(evt.target.result, { type: 'binary' });
-        const sheet = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-        rawData = convertToStructured(sheet);
-      };
-      reader.readAsBinaryString(file);
+    try {
+      if (file.name.endsWith('.json')) {
+        const text = await file.text();
+        rawData = JSON.parse(text);
+      } else {
+        const reader = new FileReader();
+        reader.onload = evt => {
+          const wb = XLSX.read(evt.target.result, { type: 'binary' });
+          const sheet = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+          rawData = convertToStructured(sheet);
+          currentYear = Object.keys(rawData || {})[0];
+          currentMonth = Object.keys(rawData?.[currentYear] || {})[0];
+          renderYearTabs();
+          renderMonthTabs();
+          renderTransactions();
+        };
+        reader.readAsBinaryString(file);
+        return;
+      }
+      currentYear = Object.keys(rawData || {})[0];
+      currentMonth = Object.keys(rawData?.[currentYear] || {})[0];
+      renderYearTabs();
+      renderMonthTabs();
+      renderTransactions();
+    } catch (err) {
+      alert('Bestand kon niet worden geladen: ' + err.message);
     }
-    currentYear = Object.keys(rawData)[0];
-    currentMonth = Object.keys(rawData[currentYear])[0];
-    renderYearTabs();
-    renderMonthTabs();
-    renderTransactions();
   });
 
   document.getElementById('downloadBtn').addEventListener('click', () => {
