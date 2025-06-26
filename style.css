@@ -7,4 +7,6 @@ body { background-color: #121212; color: #fff; }
 .form-control, .form-select { background-color: #2c2c2c; color: white; border: 1px solid #555; }
 .btn-close { filter: invert(1); }
 #newAccountName::placeholder,
-#newAccountBalance::placeholder { color: lightgray; }
+#newAccountBalance::placeholder,
+#newPotName::placeholder,
+#newPotBalance::placeholder { color: lightgray; }
