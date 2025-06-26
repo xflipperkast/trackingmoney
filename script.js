@@ -148,6 +148,28 @@
     return res;
   }
 
+  function computeAccountBalances(year, month) {
+    const ySel = parseInt(year);
+    const mSel = monthOrder.indexOf(month.toLowerCase());
+    const res = {};
+    Object.entries(accounts).forEach(([n,o]) => { res[n] = o.balance; });
+    Object.entries(rawData).forEach(([y, months]) => {
+      const yNum = parseInt(y);
+      Object.entries(months).forEach(([mName, rows]) => {
+        const mIdx = monthOrder.indexOf(mName.toLowerCase());
+        rows.forEach(r => {
+          if (!r.Rekening || res[r.Rekening] === undefined) return;
+          const after = yNum > ySel || (yNum === ySel && mIdx > mSel);
+          if (!after) return;
+          const v = parseFloat(r.Bedrag);
+          if (r.Type === 'inkomen') res[r.Rekening] -= v;
+          else if (r.Type === 'uitgave' || r.Type === 'transfer') res[r.Rekening] += v;
+        });
+      });
+    });
+    return res;
+  }
+
   // Render transactions table
   function renderTransactions() {
     const container = document.getElementById('transactionsContainer'); container.innerHTML = '';
@@ -168,7 +190,13 @@
 
     const infoTop = document.createElement('div');
     infoTop.className = 'mb-2';
-    infoTop.textContent = `Totaal saldo: €${totalBal.toFixed(2)} (Begin jaar: €${startYear.toFixed(2)})`;
+    let topText = `Totaal saldo: €${totalBal.toFixed(2)} (Begin jaar: €${startYear.toFixed(2)})`;
+    if (Object.keys(accounts).length) {
+      const monthAcc = computeAccountBalances(currentYear, currentMonth);
+      const accStr = Object.entries(monthAcc).map(([n,o])=>`${n}: €${o.toFixed(2)}`).join(' | ');
+      topText += ` | ${accStr}`;
+    }
+    infoTop.textContent = topText;
     container.appendChild(infoTop);
 
     if(Object.keys(pots).length){
