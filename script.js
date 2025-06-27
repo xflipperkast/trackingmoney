@@ -213,10 +213,28 @@
     thead.appendChild(headRow); table.appendChild(thead);
     const tbody = document.createElement('tbody');
     rawData[currentYear][currentMonth].forEach((row, i) => {
-      const tr = document.createElement('tr'); tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
-      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot'].forEach(k => { const td = document.createElement('td'); td.textContent = row[k] || ''; tr.appendChild(td); });
-      const tdAct = document.createElement('td'); const btn = document.createElement('button'); btn.className = 'btn btn-sm btn-warning'; btn.textContent = '✏️'; btn.onclick = () => openEdit(i);
-      tdAct.appendChild(btn); tr.appendChild(tdAct);
+      const tr = document.createElement('tr');
+      tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
+      ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot'].forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = row[k] || '';
+        tr.appendChild(td);
+      });
+      const tdAct = document.createElement('td');
+      const btnUp = document.createElement('button');
+      btnUp.className = 'btn btn-sm btn-secondary me-1';
+      btnUp.textContent = '▲';
+      btnUp.onclick = () => moveTransaction(i, -1);
+      const btnDown = document.createElement('button');
+      btnDown.className = 'btn btn-sm btn-secondary me-1';
+      btnDown.textContent = '▼';
+      btnDown.onclick = () => moveTransaction(i, 1);
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-warning';
+      btn.textContent = '✏️';
+      btn.onclick = () => openEdit(i);
+      tdAct.append(btnUp, btnDown, btn);
+      tr.appendChild(tdAct);
       tbody.appendChild(tr);
     });
     table.appendChild(tbody); container.appendChild(table);
@@ -254,6 +272,15 @@
     document.getElementById('transRecEnd').value = row.HerhaalTot || '';
     document.getElementById('recurringEndWrapper').style.display = recVal !== 'none' ? 'block' : 'none';
     new bootstrap.Modal(document.getElementById('transactionModal')).show();
+  }
+
+  function moveTransaction(index, dir) {
+    const arr = rawData[currentYear][currentMonth];
+    const newIdx = index + dir;
+    if (newIdx < 0 || newIdx >= arr.length) return;
+    const [item] = arr.splice(index, 1);
+    arr.splice(newIdx, 0, item);
+    renderTransactions();
   }
 
   // Reset form for new transactions
@@ -319,13 +346,34 @@
   function updateAccountList() {
     const list = document.getElementById('accountList'); list.innerHTML = '';
     Object.entries(accounts).forEach(([name,obj]) => {
-      const li = document.createElement('li'); li.className='list-group-item bg-dark text-white d-flex align-items-center';
-      const inpName = document.createElement('input'); inpName.type='text'; inpName.value=name; inpName.className='form-control me-2'; inpName.style.maxWidth='30%';
+      const li = document.createElement('li');
+      li.className='list-group-item bg-dark text-white d-flex align-items-center';
+      const inpName = document.createElement('input');
+      inpName.type='text';
+      inpName.value=name;
+      inpName.className='form-control me-2';
+      inpName.style.maxWidth='30%';
       inpName.onchange=e => { const nn=e.target.value.trim(); if (nn && nn!==name) { accounts[nn] = obj; delete accounts[name]; renderAll(); } };
-      const inpBal = document.createElement('input'); inpBal.type='number'; inpBal.value=obj.balance.toFixed(2); inpBal.className='form-control me-2'; inpBal.style.maxWidth='30%';
+      const inpBal = document.createElement('input');
+      inpBal.type='number';
+      inpBal.value=obj.balance.toFixed(2);
+      inpBal.className='form-control me-2';
+      inpBal.style.maxWidth='30%';
       inpBal.onchange=e => { accounts[name].balance = parseFloat(e.target.value); renderAll(); };
-      const btnDel = document.createElement('button'); btnDel.className='btn btn-sm btn-danger'; btnDel.textContent='✖'; btnDel.onclick=_ => { if (confirm(`Verwijder ${name}?`)) { delete accounts[name]; renderAll(); } };
-      li.append(inpName, inpBal, btnDel); list.appendChild(li);
+      const btnUp=document.createElement('button');
+      btnUp.className='btn btn-sm btn-secondary me-1';
+      btnUp.textContent='▲';
+      btnUp.onclick=_=>moveAccount(name,-1);
+      const btnDown=document.createElement('button');
+      btnDown.className='btn btn-sm btn-secondary me-1';
+      btnDown.textContent='▼';
+      btnDown.onclick=_=>moveAccount(name,1);
+      const btnDel = document.createElement('button');
+      btnDel.className='btn btn-sm btn-danger';
+      btnDel.textContent='✖';
+      btnDel.onclick=_ => { if (confirm(`Verwijder ${name}?`)) { delete accounts[name]; renderAll(); } };
+      li.append(inpName, inpBal, btnUp, btnDown, btnDel);
+      list.appendChild(li);
     });
     updateAccountSelect();
   }
@@ -334,15 +382,57 @@
     const list = document.getElementById('potList'); if(!list) return; list.innerHTML = '';
     const monthBalances = computePotBalances(currentYear, currentMonth);
     Object.entries(pots).forEach(([name,obj]) => {
-      const li=document.createElement('li'); li.className='list-group-item bg-dark text-white d-flex align-items-center';
-      const inpName=document.createElement('input'); inpName.type='text'; inpName.value=name; inpName.className='form-control me-2'; inpName.style.maxWidth='30%';
+      const li=document.createElement('li');
+      li.className='list-group-item bg-dark text-white d-flex align-items-center';
+      const inpName=document.createElement('input');
+      inpName.type='text';
+      inpName.value=name;
+      inpName.className='form-control me-2';
+      inpName.style.maxWidth='30%';
       inpName.onchange=e=>{const nn=e.target.value.trim(); if(nn && nn!==name){ pots[nn]=obj; delete pots[name]; renderAll(); }};
-      const bal=document.createElement('input'); bal.type='number'; bal.disabled=true; bal.className='form-control me-2'; bal.style.maxWidth='30%';
+      const bal=document.createElement('input');
+      bal.type='number';
+      bal.disabled=true;
+      bal.className='form-control me-2';
+      bal.style.maxWidth='30%';
       bal.value=(monthBalances[name]!==undefined?monthBalances[name]:obj.balance).toFixed(2);
-      const btnDel=document.createElement('button'); btnDel.className='btn btn-sm btn-danger'; btnDel.textContent='✖'; btnDel.onclick=_=>{ if(confirm(`Verwijder ${name}?`)){ delete pots[name]; renderAll(); } };
-      li.append(inpName, bal, btnDel); list.appendChild(li);
+      const btnUp=document.createElement('button');
+      btnUp.className='btn btn-sm btn-secondary me-1';
+      btnUp.textContent='▲';
+      btnUp.onclick=_=>movePot(name,-1);
+      const btnDown=document.createElement('button');
+      btnDown.className='btn btn-sm btn-secondary me-1';
+      btnDown.textContent='▼';
+      btnDown.onclick=_=>movePot(name,1);
+      const btnDel=document.createElement('button');
+      btnDel.className='btn btn-sm btn-danger';
+      btnDel.textContent='✖';
+      btnDel.onclick=_=>{ if(confirm(`Verwijder ${name}?`)){ delete pots[name]; renderAll(); } };
+      li.append(inpName, bal, btnUp, btnDown, btnDel);
+      list.appendChild(li);
     });
     updatePotSelect();
+  }
+
+  function reorderObject(obj, key, dir) {
+    const keys = Object.keys(obj);
+    const idx = keys.indexOf(key);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= keys.length) return obj;
+    [keys[idx], keys[newIdx]] = [keys[newIdx], keys[idx]];
+    const res = {};
+    keys.forEach(k => { res[k] = obj[k]; });
+    return res;
+  }
+
+  function moveAccount(name, dir) {
+    accounts = reorderObject(accounts, name, dir);
+    renderAll();
+  }
+
+  function movePot(name, dir) {
+    pots = reorderObject(pots, name, dir);
+    renderAll();
   }
 
   function updatePotSelect() {
