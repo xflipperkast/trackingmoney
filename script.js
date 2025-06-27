@@ -1,5 +1,7 @@
   const monthOrder = ["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
   let rawData, currentYear, currentMonth, accounts, pots, editing;
+  let dragAccountName = null;
+  let dragPotName = null;
 
   // Initialize data and state
   function initializeTemplate() {
@@ -171,6 +173,8 @@
   }
 
   // Render transactions table
+  let dragTransIndex = null;
+
   function renderTransactions() {
     const container = document.getElementById('transactionsContainer'); container.innerHTML = '';
     if (!rawData[currentYear]) rawData[currentYear] = {};
@@ -214,7 +218,20 @@
     const tbody = document.createElement('tbody');
     rawData[currentYear][currentMonth].forEach((row, i) => {
       const tr = document.createElement('tr');
-      tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
+      tr.className = (parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive') + ' draggable';
+      tr.draggable = true;
+      tr.dataset.index = i;
+      tr.addEventListener('dragstart', e => { dragTransIndex = i; });
+      tr.addEventListener('dragover', e => { e.preventDefault(); tr.classList.add('drag-over'); });
+      tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
+      tr.addEventListener('drop', e => {
+        e.preventDefault();
+        const target = parseInt(e.currentTarget.dataset.index);
+        if (dragTransIndex === null || target === dragTransIndex) return;
+        reorderTransaction(dragTransIndex, target);
+        dragTransIndex = null;
+        tr.classList.remove('drag-over');
+      });
       ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot'].forEach(k => {
         const td = document.createElement('td');
         td.textContent = row[k] || '';
@@ -229,11 +246,15 @@
       btnDown.className = 'btn btn-sm btn-secondary me-1';
       btnDown.textContent = '▼';
       btnDown.onclick = () => moveTransaction(i, 1);
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-sm btn-warning';
-      btn.textContent = '✏️';
-      btn.onclick = () => openEdit(i);
-      tdAct.append(btnUp, btnDown, btn);
+      const btnEdit = document.createElement('button');
+      btnEdit.className = 'btn btn-sm btn-warning me-1';
+      btnEdit.textContent = '✏️';
+      btnEdit.onclick = () => openEdit(i);
+      const btnDel = document.createElement('button');
+      btnDel.className = 'btn btn-sm btn-danger';
+      btnDel.textContent = '✖';
+      btnDel.onclick = () => removeTransaction(i);
+      tdAct.append(btnUp, btnDown, btnEdit, btnDel);
       tr.appendChild(tdAct);
       tbody.appendChild(tr);
     });
@@ -281,6 +302,22 @@
     const [item] = arr.splice(index, 1);
     arr.splice(newIdx, 0, item);
     renderTransactions();
+  }
+
+  function reorderTransaction(from, to) {
+    const arr = rawData[currentYear][currentMonth];
+    if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return;
+    const [item] = arr.splice(from, 1);
+    arr.splice(to, 0, item);
+    renderTransactions();
+  }
+
+  function removeTransaction(index) {
+    if (!confirm('Verwijder deze transactie?')) return;
+    const arr = rawData[currentYear][currentMonth];
+    const [removed] = arr.splice(index, 1);
+    adjustBalances(removed, -1);
+    renderAll();
   }
 
   // Reset form for new transactions
@@ -347,7 +384,22 @@
     const list = document.getElementById('accountList'); list.innerHTML = '';
     Object.entries(accounts).forEach(([name,obj]) => {
       const li = document.createElement('li');
-      li.className='list-group-item bg-dark text-white d-flex align-items-center';
+      li.className='list-group-item bg-dark text-white d-flex align-items-center draggable';
+      li.draggable = true;
+      li.dataset.name = name;
+      li.addEventListener('dragstart', e => { dragAccountName = name; });
+      li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over'); });
+      li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+      li.addEventListener('drop', e => {
+        e.preventDefault();
+        const target = e.currentTarget.dataset.name;
+        if (dragAccountName && target && target !== dragAccountName) {
+          accounts = reorderObjectByName(accounts, dragAccountName, target);
+          dragAccountName = null;
+          renderAll();
+        }
+        li.classList.remove('drag-over');
+      });
       const inpName = document.createElement('input');
       inpName.type='text';
       inpName.value=name;
@@ -383,7 +435,22 @@
     const monthBalances = computePotBalances(currentYear, currentMonth);
     Object.entries(pots).forEach(([name,obj]) => {
       const li=document.createElement('li');
-      li.className='list-group-item bg-dark text-white d-flex align-items-center';
+      li.className='list-group-item bg-dark text-white d-flex align-items-center draggable';
+      li.draggable = true;
+      li.dataset.name = name;
+      li.addEventListener('dragstart', e => { dragPotName = name; });
+      li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over'); });
+      li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+      li.addEventListener('drop', e => {
+        e.preventDefault();
+        const target = e.currentTarget.dataset.name;
+        if (dragPotName && target && target !== dragPotName) {
+          pots = reorderObjectByName(pots, dragPotName, target);
+          dragPotName = null;
+          renderAll();
+        }
+        li.classList.remove('drag-over');
+      });
       const inpName=document.createElement('input');
       inpName.type='text';
       inpName.value=name;
@@ -420,6 +487,18 @@
     const newIdx = idx + dir;
     if (newIdx < 0 || newIdx >= keys.length) return obj;
     [keys[idx], keys[newIdx]] = [keys[newIdx], keys[idx]];
+    const res = {};
+    keys.forEach(k => { res[k] = obj[k]; });
+    return res;
+  }
+
+  function reorderObjectByName(obj, from, to) {
+    const keys = Object.keys(obj);
+    const fromIdx = keys.indexOf(from);
+    const toIdx = keys.indexOf(to);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return obj;
+    keys.splice(fromIdx, 1);
+    keys.splice(toIdx, 0, from);
     const res = {};
     keys.forEach(k => { res[k] = obj[k]; });
     return res;

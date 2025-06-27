@@ -10,3 +10,6 @@ body { background-color: #121212; color: #fff; }
 #newAccountBalance::placeholder,
 #newPotName::placeholder,
 #newPotBalance::placeholder { color: lightgray; }
+
+.draggable { cursor: move; }
+.drag-over { outline: 2px dashed #888; }
