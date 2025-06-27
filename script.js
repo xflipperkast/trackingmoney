@@ -230,15 +230,17 @@
 
     const table = document.createElement('table'); table.className = 'table table-dark table-bordered';
     const thead = document.createElement('thead'), headRow = document.createElement('tr');
-    ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot','Acties'].forEach(h => { const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th); });
+    ['⇅','Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot','Acties'].forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
     thead.appendChild(headRow); table.appendChild(thead);
     const tbody = document.createElement('tbody');
     rawData[currentYear][currentMonth].forEach((row, i) => {
       const tr = document.createElement('tr');
-      tr.className = (parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive') + ' draggable';
-      tr.draggable = true;
+      tr.className = parseFloat(row.Bedrag) < 0 ? 'negative' : 'positive';
       tr.dataset.index = i;
-      tr.addEventListener('dragstart', e => { dragTransIndex = i; });
       tr.addEventListener('dragover', e => { e.preventDefault(); tr.classList.add('drag-over'); });
       tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
       tr.addEventListener('drop', e => {
@@ -249,6 +251,12 @@
         dragTransIndex = null;
         tr.classList.remove('drag-over');
       });
+      const tdDrag = document.createElement('td');
+      tdDrag.className = 'drag-handle';
+      tdDrag.draggable = true;
+      tdDrag.innerHTML = '&#9776;';
+      tdDrag.addEventListener('dragstart', () => { dragTransIndex = i; });
+      tr.appendChild(tdDrag);
       ['Datum','Omschrijving','Bedrag','Type','SubType','Rekening','Pot'].forEach(k => {
         const td = document.createElement('td');
         td.textContent = row[k] || '';
@@ -401,10 +409,13 @@
     const list = document.getElementById('accountList'); list.innerHTML = '';
     Object.entries(accounts).forEach(([name,obj]) => {
       const li = document.createElement('li');
-      li.className='list-group-item bg-dark text-white d-flex align-items-center draggable';
-      li.draggable = true;
+      li.className='list-group-item bg-dark text-white d-flex align-items-center';
       li.dataset.name = name;
-      li.addEventListener('dragstart', e => { dragAccountName = name; });
+      const handle = document.createElement('span');
+      handle.className='drag-handle';
+      handle.draggable = true;
+      handle.innerHTML='&#9776;';
+      handle.addEventListener('dragstart', () => { dragAccountName = name; });
       li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over'); });
       li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
       li.addEventListener('drop', e => {
@@ -417,6 +428,7 @@
         }
         li.classList.remove('drag-over');
       });
+      li.appendChild(handle);
       const inpName = document.createElement('input');
       inpName.type='text';
       inpName.value=name;
@@ -452,10 +464,13 @@
     const monthBalances = computePotBalances(currentYear, currentMonth);
     Object.entries(pots).forEach(([name,obj]) => {
       const li=document.createElement('li');
-      li.className='list-group-item bg-dark text-white d-flex align-items-center draggable';
-      li.draggable = true;
+      li.className='list-group-item bg-dark text-white d-flex align-items-center';
       li.dataset.name = name;
-      li.addEventListener('dragstart', e => { dragPotName = name; });
+      const handle=document.createElement('span');
+      handle.className='drag-handle';
+      handle.draggable=true;
+      handle.innerHTML='&#9776;';
+      handle.addEventListener('dragstart', () => { dragPotName = name; });
       li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over'); });
       li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
       li.addEventListener('drop', e => {
@@ -468,6 +483,7 @@
         }
         li.classList.remove('drag-over');
       });
+      li.appendChild(handle);
       const inpName=document.createElement('input');
       inpName.type='text';
       inpName.value=name;
