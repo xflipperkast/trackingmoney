@@ -10,9 +10,8 @@
 <body>
 <div class="container py-4">
   <h1 class="mb-4">Geldzaken Overzicht</h1>
-  <div class="mb-3">
-    <input type="file" id="fileInput" accept=".json" class="form-control">
-  </div>
+  <div id="dropZone" class="mb-3">Sleep hier je JSON bestand of klik om te selecteren</div>
+  <input type="file" id="fileInput" accept=".json" class="form-control" hidden>
   <ul class="nav nav-tabs" id="yearTabs"></ul>
   <ul class="nav nav-tabs mt-2" id="monthTabs"></ul>
   <div class="mt-4" id="transactionsContainer"></div>

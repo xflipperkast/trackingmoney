@@ -13,3 +13,17 @@ body { background-color: #121212; color: #fff; }
 
 .draggable { cursor: move; }
 .drag-over { outline: 2px dashed #888; }
+
+#dropZone {
+  border: 2px dashed #555;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  background-color: #1a1a1a;
+  color: #ccc;
+  cursor: pointer;
+}
+#dropZone.dragover {
+  border-color: #00aaff;
+  background-color: #222;
+}

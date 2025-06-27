@@ -3,6 +3,23 @@
   let dragAccountName = null;
   let dragPotName = null;
 
+  async function loadFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      rawData = parsed.data || parsed;
+      accounts = parsed.accounts || {};
+      pots = parsed.pots || {};
+      currentYear = Object.keys(rawData)[0];
+      currentMonth = Object.keys(rawData[currentYear])[0];
+      renderAll();
+    } catch {
+      initializeTemplate();
+      renderAll();
+    }
+  }
+
   // Initialize data and state
   function initializeTemplate() {
     const now = new Date();
@@ -558,17 +575,19 @@
     sel.appendChild(opt); sel.value = val;
   });
 
-  document.getElementById('fileInput').addEventListener('change', async e => {
-    const file = e.target.files[0]; if (!file) return;
-    try {
-      const text = await file.text(); const parsed = JSON.parse(text);
-      rawData = parsed.data || parsed; accounts = parsed.accounts || {}; pots = parsed.pots || {};
-      currentYear = Object.keys(rawData)[0]; currentMonth = Object.keys(rawData[currentYear])[0];
-      renderAll();
-    } catch {
-      initializeTemplate();
-      renderAll();
-    }
+  document.getElementById('fileInput').addEventListener('change', e => {
+    loadFile(e.target.files[0]);
+  });
+
+  const dropZone = document.getElementById('dropZone');
+  dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    loadFile(file);
   });
 
   document.getElementById('downloadBtn').addEventListener('click', () => {
