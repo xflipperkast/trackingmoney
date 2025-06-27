@@ -332,14 +332,15 @@
 
   function updatePotList() {
     const list = document.getElementById('potList'); if(!list) return; list.innerHTML = '';
+    const monthBalances = computePotBalances(currentYear, currentMonth);
     Object.entries(pots).forEach(([name,obj]) => {
       const li=document.createElement('li'); li.className='list-group-item bg-dark text-white d-flex align-items-center';
       const inpName=document.createElement('input'); inpName.type='text'; inpName.value=name; inpName.className='form-control me-2'; inpName.style.maxWidth='30%';
       inpName.onchange=e=>{const nn=e.target.value.trim(); if(nn && nn!==name){ pots[nn]=obj; delete pots[name]; renderAll(); }};
-      const inpBal=document.createElement('input'); inpBal.type='number'; inpBal.value=obj.balance.toFixed(2); inpBal.className='form-control me-2'; inpBal.style.maxWidth='30%';
-      inpBal.onchange=e=>{ pots[name].balance=parseFloat(e.target.value); renderAll(); };
+      const bal=document.createElement('input'); bal.type='number'; bal.disabled=true; bal.className='form-control me-2'; bal.style.maxWidth='30%';
+      bal.value=(monthBalances[name]!==undefined?monthBalances[name]:obj.balance).toFixed(2);
       const btnDel=document.createElement('button'); btnDel.className='btn btn-sm btn-danger'; btnDel.textContent='✖'; btnDel.onclick=_=>{ if(confirm(`Verwijder ${name}?`)){ delete pots[name]; renderAll(); } };
-      li.append(inpName, inpBal, btnDel); list.appendChild(li);
+      li.append(inpName, bal, btnDel); list.appendChild(li);
     });
     updatePotSelect();
   }
